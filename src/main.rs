@@ -54,6 +54,8 @@ fn preprocess_line(line: &str) -> String {
   let word = line.trim_right_matches(|c| "!? \n".contains(c));
 
   for ch in word.chars() {
+    // TODO: use a crate the provides NFD normalization,
+    // and simply remove \u{03xx} code points.
     let ch = ch.to_lowercase().nth(0).unwrap();
     buffer.push(match ch {
       'â' => 'a',
@@ -67,11 +69,16 @@ fn preprocess_line(line: &str) -> String {
   buffer
 }
 
+/**
+ * Counts bigrams in a word.
+ */
 fn count_bigrams(counter: &mut HashMap<Bigram, u32>, text: &String) {
-  if text.len() < 1 {
+  if text.is_empty() {
     return;
   }
+  assert!(!text.ends_with('\n'));
 
+  // The first bigram always has includes the Start token.
   let mut last_char = Token::Start;
   for ch in text.chars() {
     let this_char = Token::Char(ch);
@@ -95,15 +102,15 @@ fn count_bigrams(counter: &mut HashMap<Bigram, u32>, text: &String) {
  */
 impl fmt::Display for Token {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let c = match *self {
+    write!(f, "{}", match *self {
+      Token::Start => '^',
+      Token::End => '$',
       Token::Char(c) => {
+        /* Make sure the meaning of '^' and '$' is unambiguous---
+         * we wouldn't want our shorthand to be an actual character! */
         assert!(c != '^' || c != '$');
         c
       },
-      Token::Start => '^',
-      Token::End => '$'
-    };
-
-    write!(f, "{}", c)
+    })
   }
 }
