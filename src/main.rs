@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufRead, Result};
+use std::io::{BufReader, BufRead};
 use std::collections::HashMap;
 
 /**
@@ -20,16 +20,16 @@ struct Bigram(Token, Token);
 
 
 fn main() {
-    let mut crk_bigrams = HashMap::new();
-    count_bigrams_in_file("itwêwina", &mut crk_bigrams)
-      .expect("could not count bigrams");
+    let crk_bigrams = count_bigrams_in_file("itwêwina");
+
     for (bigram, count) in crk_bigrams.iter() {
       println!("{0}\t{1}{2}", count, extract(bigram.0), extract(bigram.1));
     }
 }
 
-fn count_bigrams_in_file(filename: &str, mut bigrams: &mut HashMap<Bigram, u32>) -> Result<()> {
+fn count_bigrams_in_file(filename: &str) -> HashMap<Bigram, u32> {
     let file = File::open(filename).expect("file not found");
+    let mut bigrams = HashMap::new();
 
     for line in BufReader::new(file).lines() {
         let line = line.expect("Couldn't get line");
@@ -37,7 +37,7 @@ fn count_bigrams_in_file(filename: &str, mut bigrams: &mut HashMap<Bigram, u32>)
         count_bigrams(&mut bigrams, &preprocess_line(&line));
     }
 
-    Ok(())
+    bigrams
 }
 
 
