@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+use std::fmt;
 use std::fs::File;
 use std::io::{BufReader, BufRead};
-use std::collections::HashMap;
 
 /**
  * A token can be a character, but it can also be the special Start and End tokens.
@@ -23,32 +24,26 @@ fn main() {
     let crk_bigrams = count_bigrams_in_file("itwêwina");
 
     for (bigram, count) in crk_bigrams.iter() {
-      println!("{0}\t{1}{2}", count, extract(bigram.0), extract(bigram.1));
+      println!("{0}\t{1}{2}", count, bigram.0, bigram.1);
     }
 }
 
+/**
+ * Given a filename of a word list, counts all of the bigrams
+ * present, and returns it as a HashMap.
+ */
 fn count_bigrams_in_file(filename: &str) -> HashMap<Bigram, u32> {
     let file = File::open(filename).expect("file not found");
     let mut bigrams = HashMap::new();
 
     for line in BufReader::new(file).lines() {
         let line = line.expect("Couldn't get line");
-
         count_bigrams(&mut bigrams, &preprocess_line(&line));
     }
 
     bigrams
 }
 
-
-// TODO: convert into format for Tokens?
-fn extract(t: Token) -> char {
-  match t {
-    Token::Char(c) => c,
-    Token::Start => '^',
-    Token::End => '$'
-  }
-}
 
 /// Gets rid of surrounding whitespace,
 /// removes circumflexes,
@@ -92,4 +87,23 @@ fn count_bigrams(counter: &mut HashMap<Bigram, u32>, text: &String) {
   let count = counter.entry(Bigram(last_char, Token::End))
     .or_insert(0);
   *count += 1;
+}
+
+/**
+ * Displays a character. Note that this will panic if the characters are either
+ * '^' or '$' as those are used to indicate the Start and End tokens, respectively.
+ */
+impl fmt::Display for Token {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    let c = match *self {
+      Token::Char(c) => {
+        assert!(c != '^' || c != '$');
+        c
+      },
+      Token::Start => '^',
+      Token::End => '$'
+    };
+
+    write!(f, "{}", c)
+  }
 }
