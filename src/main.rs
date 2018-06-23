@@ -4,7 +4,8 @@ use std::fs::File;
 use std::io::{BufReader, BufRead};
 
 /**
- * A token can be a character, but it can also be the special Start and End tokens.
+ * Since we're interested in counting what are common starts of words, and common ends of words, a
+ * "token" is more than simply a character---we encode the start and end of words explicitly.
  */
 #[derive(PartialEq, Eq, Hash, Debug, Copy, Clone)]
 enum Token {
@@ -14,34 +15,34 @@ enum Token {
 }
 
 /**
- * A bigram is two tokens stuck together.
+ * A digraph is two tokens stuck together.
  */
 #[derive(PartialEq, Eq, Hash, Debug)]
-struct Bigram(Token, Token);
+struct Digraph(Token, Token);
 
 
 fn main() {
-    let crk_bigrams = count_bigrams_in_file("itwêwina");
+    let crk_digraphs = count_digraphs_in_file("itwêwina");
 
-    for (bigram, count) in crk_bigrams.iter() {
-      println!("{0}\t{1}{2}", count, bigram.0, bigram.1);
+    for (digraph, count) in crk_digraphs.iter() {
+      println!("{0}\t{1}{2}", count, digraph.0, digraph.1);
     }
 }
 
 /**
- * Given a filename of a word list, counts all of the bigrams
+ * Given a filename of a word list, counts all of the digraphs
  * present, and returns it as a HashMap.
  */
-fn count_bigrams_in_file(filename: &str) -> HashMap<Bigram, u32> {
+fn count_digraphs_in_file(filename: &str) -> HashMap<Digraph, u32> {
     let file = File::open(filename).expect("file not found");
-    let mut bigrams = HashMap::new();
+    let mut digraphs = HashMap::new();
 
     for line in BufReader::new(file).lines() {
         let line = line.expect("Couldn't get line");
-        count_bigrams(&mut bigrams, &preprocess_line(&line));
+        count_digraphs(&mut digraphs, &preprocess_line(&line));
     }
 
-    bigrams
+    digraphs
 }
 
 
@@ -70,28 +71,28 @@ fn preprocess_line(line: &str) -> String {
 }
 
 /**
- * Counts bigrams in a word.
+ * Counts digraphs in a word. Assumes the word has already been preprocessed.
  */
-fn count_bigrams(counter: &mut HashMap<Bigram, u32>, text: &String) {
+fn count_digraphs(counter: &mut HashMap<Digraph, u32>, text: &String) {
   if text.is_empty() {
     return;
   }
   assert!(!text.ends_with('\n'));
 
-  // The first bigram always has includes the Start token.
+  // The first digraph always has includes the Start token.
   let mut last_char = Token::Start;
   for ch in text.chars() {
     let this_char = Token::Char(ch);
-    let bigram = Bigram(last_char, this_char);
+    let digraph = Digraph(last_char, this_char);
 
-    let count = counter.entry(bigram).or_insert(0);
+    let count = counter.entry(digraph).or_insert(0);
     *count += 1;
 
     last_char = this_char;
   }
 
   // Finalize by adding last character in the string.
-  let count = counter.entry(Bigram(last_char, Token::End))
+  let count = counter.entry(Digraph(last_char, Token::End))
     .or_insert(0);
   *count += 1;
 }
