@@ -1,0 +1,6 @@
+[package]
+name = "crk-or-eng"
+version = "0.1.0"
+authors = ["Eddie Antonio Santos <easantos@ualberta.ca>"]
+
+[dependencies]
