@@ -1,7 +1,21 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::File;
 use std::io::{BufReader, BufRead};
+
+// Feature vector:
+// {has_ac: bool, has_ci: bool, has_im: bool, ...}
+// Represented as a sparce vector.
+//
+// In fact, storage can simply be a vector of digraphs present in a word.
+//
+// e.g.,
+// x = {^a, ac, ci, im, mo, si, is, s$} y = crk
+// x = {^p, pu, pp, py, y$}             y = eng
+//
+// Maybe invert this data structure?
+//
+// P(ci|crk) = P(count times in crk|counts overall)
 
 /**
  * Since we're interested in counting what are common starts of words, and common ends of words, a
@@ -17,34 +31,58 @@ enum Token {
 /**
  * A digraph is two tokens stuck together.
  */
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Copy, Clone)]
 struct Digraph(Token, Token);
 
-
-fn main() {
-    let crk_digraphs = count_digraphs_in_file("itwêwina");
-
-    for (digraph, count) in crk_digraphs.iter() {
-      println!("{0}\t{1}{2}", count, digraph.0, digraph.1);
-    }
+/**
+ * How many times a digraph appears in nêhiyawêwin vs. English.
+ */
+struct Occurance {
+  crk: u32,
+  eng: u32
 }
 
-/**
- * Given a filename of a word list, counts all of the digraphs
- * present, and returns it as a HashMap.
- */
-fn count_digraphs_in_file(filename: &str) -> HashMap<Digraph, u32> {
+struct Classifier {
+  features: HashMap<Digraph, Occurance>
+
+}
+
+impl Classifier {
+  fn new() -> Classifier {
+    Classifier { features: HashMap::new() }
+  }
+
+  /**
+   * Given a filename, gets a set of all of the digraphs present in each word.
+   * Use the "on_digraph" closure to increment the correct counter.
+   */
+  fn count_digraphs_in_file<F>(&mut self, filename: &str, on_digraph: F)
+    where F: Fn(&mut Occurance) {
     let file = File::open(filename).expect("file not found");
-    let mut digraphs = HashMap::new();
 
     for line in BufReader::new(file).lines() {
-        let line = line.expect("Couldn't get line");
-        count_digraphs(&mut digraphs, &preprocess_line(&line));
+      let line = line.expect("Couldn't get line");
+      let word = preprocess_line(&line);
+      for digraph in digraphs_in(&word).iter() {
+        let occ = self.features.entry(*digraph)
+          .or_insert(Occurance { crk: 0, eng: 0});
+        on_digraph(occ)
+      }
     }
-
-    digraphs
+  }
 }
 
+fn main() {
+  let mut classifier = Classifier::new();
+  classifier.count_digraphs_in_file("itwêwina", |occ| { occ.crk += 1; });
+  classifier.count_digraphs_in_file("words", |occ| { occ.eng += 1; });
+
+  for (digraph, occ) in classifier.features.iter() {
+    println!("{}{}: crk={}, eng={} (total: {})",
+      digraph.0, digraph.1, occ.crk, occ.eng, occ.total()
+    )
+  }
+}
 
 /// Gets rid of surrounding whitespace,
 /// removes circumflexes,
@@ -73,28 +111,32 @@ fn preprocess_line(line: &str) -> String {
 /**
  * Counts digraphs in a word. Assumes the word has already been preprocessed.
  */
-fn count_digraphs(counter: &mut HashMap<Digraph, u32>, text: &String) {
+fn digraphs_in(text: &String) -> HashSet<Digraph> {
   if text.is_empty() {
-    return;
+    return HashSet::new();
   }
   assert!(!text.ends_with('\n'));
+
+  let mut digraphs = HashSet::new();
 
   // The first digraph always has includes the Start token.
   let mut last_char = Token::Start;
   for ch in text.chars() {
     let this_char = Token::Char(ch);
-    let digraph = Digraph(last_char, this_char);
-
-    let count = counter.entry(digraph).or_insert(0);
-    *count += 1;
-
+    digraphs.insert(Digraph(last_char, this_char));
     last_char = this_char;
   }
 
   // Finalize by adding last character in the string.
-  let count = counter.entry(Digraph(last_char, Token::End))
-    .or_insert(0);
-  *count += 1;
+  digraphs.insert(Digraph(last_char, Token::End));
+
+  digraphs
+}
+
+impl Occurance {
+  fn total(&self) -> u32 {
+    self.crk + self.eng
+  }
 }
 
 /**
