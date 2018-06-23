@@ -2,6 +2,9 @@ use std::fs::File;
 use std::io::{BufReader, BufRead, Result};
 use std::collections::HashMap;
 
+/**
+ * A token can be a character, but it can also be the special Start and End tokens.
+ */
 #[derive(PartialEq, Eq, Hash, Debug, Copy, Clone)]
 enum Token {
   Start,
@@ -9,26 +12,36 @@ enum Token {
   Char(char)
 }
 
+/**
+ * A bigram is two tokens stuck together.
+ */
 #[derive(PartialEq, Eq, Hash, Debug)]
 struct Bigram(Token, Token);
 
 
-fn main() -> Result<()> {
-    let crk_file = File::open("itwêwina").expect("file not found");
+fn main() {
     let mut crk_bigrams = HashMap::new();
-
-    for line in BufReader::new(crk_file).lines() {
-        let line = line.expect("Couldn't get line");
-
-        count_bigrams(&mut crk_bigrams, &preprocess_line(&line));
-    }
-
+    count_bigrams_in_file("itwêwina", &mut crk_bigrams)
+      .expect("could not count bigrams");
     for (bigram, count) in crk_bigrams.iter() {
       println!("{0}\t{1}{2}", count, extract(bigram.0), extract(bigram.1));
     }
+}
+
+fn count_bigrams_in_file(filename: &str, mut bigrams: &mut HashMap<Bigram, u32>) -> Result<()> {
+    let file = File::open(filename).expect("file not found");
+
+    for line in BufReader::new(file).lines() {
+        let line = line.expect("Couldn't get line");
+
+        count_bigrams(&mut bigrams, &preprocess_line(&line));
+    }
+
     Ok(())
 }
 
+
+// TODO: convert into format for Tokens?
 fn extract(t: Token) -> char {
   match t {
     Token::Char(c) => c,
@@ -59,7 +72,7 @@ fn preprocess_line(line: &str) -> String {
   buffer
 }
 
-fn count_bigrams(counter: &mut HashMap<Bigram, i32>, text: &String) {
+fn count_bigrams(counter: &mut HashMap<Bigram, u32>, text: &String) {
   if text.len() < 1 {
     return;
   }
