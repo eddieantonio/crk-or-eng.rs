@@ -70,12 +70,22 @@ impl Classifier {
       }
     }
   }
+
+  /**
+   * Removes unhelpful features.
+   */
+  fn prune_features(&mut self) {
+    // "Unhelpful" features are digraphs that have only been witnessed once, ever.
+    self.features.retain(|_digraph, occ| occ.total() > 1);
+  }
 }
 
 fn main() {
   let mut classifier = Classifier::new();
   classifier.count_digraphs_in_file("itwêwina", |occ| { occ.crk += 1; });
   classifier.count_digraphs_in_file("words", |occ| { occ.eng += 1; });
+
+  classifier.prune_features();
 
   for (digraph, occ) in classifier.features.iter() {
     println!("{}{}: crk={}, eng={} (total: {})",
