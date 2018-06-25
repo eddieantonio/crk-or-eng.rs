@@ -23,6 +23,7 @@ struct Digraph(Token, Token);
 /**
  * Which language?
  */
+#[derive(Debug)]
 enum Language {
   Crk, // nêhiyawêwin/Plains Cree
   Eng, // English
@@ -38,21 +39,19 @@ struct Occurance {
 
 struct Classifier {
   features: HashMap<Digraph, Occurance>
-
 }
 
 
 fn main() {
-  let mut classifier = Classifier::new();
-  classifier.count_digraphs_in_file("itwêwina", Language::Crk);
-  classifier.count_digraphs_in_file("words", Language::Eng);
+  let mut model = Classifier::new();
+  model.count_digraphs_in_file("itwêwina", Language::Crk);
+  model.count_digraphs_in_file("words", Language::Eng);
 
-  classifier.prune_features();
+  model.prune_features();
 
-  for (digraph, occ) in classifier.features.iter() {
-    println!("{}{}: crk={}, eng={} (total: {})",
-      digraph.0, digraph.1, occ.crk, occ.eng, occ.total()
-    )
+  for word in ["acimosis",  "puppy"].iter() {
+    let lang = model.classify(word);
+    println!("I think '{}' is {:?}", word, lang);
   }
 }
 
@@ -83,7 +82,7 @@ fn line_to_word(line: &str) -> String {
 /**
  * Counts digraphs in a word. Assumes the word has already been preprocessed.
  */
-fn digraphs_of(text: &String) -> HashSet<Digraph> {
+fn digraphs_of(text: &str) -> HashSet<Digraph> {
   if text.is_empty() {
     return HashSet::new();
   }
@@ -141,16 +140,31 @@ impl Classifier {
     self.features.retain(|_digraph, occ| occ.total() > 1);
   }
 
-  fn classify(&self, word: &String) -> Language {
-    let mut log_prob_crk: f64 = 1.0;
+  fn classify(&self, word: &str) -> Language {
+    let mut log_prob_crk: f64 = 0.0;
+    let mut log_prob_eng: f64 = 0.0;
+
+    // TODO: factor this better
     for digraph in digraphs_of(word) {
       if let Some(log_prob) = self.log_prob(digraph, Language::Crk) {
         log_prob_crk += log_prob;
       }
     }
 
+    for digraph in digraphs_of(word) {
+      if let Some(log_prob) = self.log_prob(digraph, Language::Eng) {
+        log_prob_eng += log_prob;
+      }
+    }
+
     println!("P(crk|{}) = {}", word, log_prob_crk.exp());
-    Language::Crk
+    println!("P(eng|{}) = {}", word, log_prob_eng.exp());
+
+    if log_prob_crk > log_prob_eng {
+      Language::Crk
+    } else {
+      Language::Eng
+    }
   }
 
   fn log_prob(&self, digraph: Digraph, language: Language) -> Option<f64> {
