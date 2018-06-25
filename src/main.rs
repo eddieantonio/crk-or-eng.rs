@@ -170,17 +170,14 @@ impl Classifier {
     let mut log_prob_crk: f64 = 0.0;
     let mut log_prob_eng: f64 = 0.0;
 
-    // TODO: factor this better
     for digraph in digraphs_of(word) {
-      if let Some(log_prob) = self.log_prob(digraph, Language::Crk) {
-        log_prob_crk += log_prob;
+      // Skip digraphs we've never seen.
+      if !self.features.contains_key(&digraph) {
+        continue;
       }
-    }
 
-    for digraph in digraphs_of(word) {
-      if let Some(log_prob) = self.log_prob(digraph, Language::Eng) {
-        log_prob_eng += log_prob;
-      }
+      log_prob_crk += self.log_prob(digraph, Language::Crk).expect("digraph does not exist");
+      log_prob_eng += self.log_prob(digraph, Language::Eng).expect("digraph does not exist");
     }
 
     println!("  P(crk|{}) = {}", word, log_prob_crk.exp());
