@@ -49,7 +49,12 @@ fn main() {
 
   model.prune_features();
 
-  for word in ["acimosis",  "puppy"].iter() {
+  let test_words = [
+    "acimosis", "puppy", "house", "waskahikan", "beaver", "amisk", "bear",
+    "maskwa", "hello", "kitty", "tanisi", "minosis",
+    "tansi" // this will be misclassfied, mostly due to the "ns" digraph
+  ];
+  for word in test_words.iter() {
     let lang = model.classify(word);
     println!("I think '{}' is {:?}", word, lang);
   }
@@ -157,8 +162,8 @@ impl Classifier {
       }
     }
 
-    println!("P(crk|{}) = {}", word, log_prob_crk.exp());
-    println!("P(eng|{}) = {}", word, log_prob_eng.exp());
+    println!("  P(crk|{}) = {}", word, log_prob_crk.exp());
+    println!("  P(eng|{}) = {}", word, log_prob_eng.exp());
 
     if log_prob_crk > log_prob_eng {
       Language::Crk
