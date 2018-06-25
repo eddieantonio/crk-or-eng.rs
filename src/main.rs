@@ -41,43 +41,6 @@ struct Classifier {
 
 }
 
-impl Classifier {
-  fn new() -> Classifier {
-    Classifier { features: HashMap::new() }
-  }
-
-  /**
-   * Given a filename, gets a set of all of the digraphs present in each word.
-   * Use the "on_digraph" closure to increment the correct counter.
-   */
-  fn count_digraphs_in_file(&mut self, filename: &str, lang: Language) {
-    let file = File::open(filename).expect("file not found");
-
-    for line in BufReader::new(file).lines() {
-      let line = line.expect("Couldn't get line");
-      let word = line_to_word(&line);
-      for digraph in digraphs_of(&word).iter() {
-        let occ = self.features.entry(*digraph)
-          .or_insert(Occurance { crk: 0, eng: 0});
-        match lang {
-          Language::Crk => occ.crk += 1,
-          Language::Eng => occ.eng += 1,
-        };
-      }
-    }
-  }
-
-  /**
-   * Removes unhelpful features.
-   */
-  fn prune_features(&mut self) {
-    // "Unhelpful" features are digraphs that have only been witnessed once, ever.
-    // Remove them, since they don't add much when classifying.
-    self.features.retain(|_digraph, occ| occ.total() > 1);
-  }
-
-  // TODO: laplace smoothing
-}
 
 fn main() {
   let mut classifier = Classifier::new();
@@ -142,11 +105,86 @@ fn digraphs_of(text: &String) -> HashSet<Digraph> {
   digraphs
 }
 
+
+impl Classifier {
+  fn new() -> Classifier {
+    Classifier { features: HashMap::new() }
+  }
+
+  /**
+   * Given a filename, gets a set of all of the digraphs present in each word.
+   * Use the "on_digraph" closure to increment the correct counter.
+   */
+  fn count_digraphs_in_file(&mut self, filename: &str, lang: Language) {
+    let file = File::open(filename).expect("file not found");
+
+    for line in BufReader::new(file).lines() {
+      let line = line.expect("Couldn't get line");
+      let word = line_to_word(&line);
+      for digraph in digraphs_of(&word).iter() {
+        let occ = self.features.entry(*digraph)
+          .or_insert(Occurance { crk: 0, eng: 0});
+        match lang {
+          Language::Crk => occ.crk += 1,
+          Language::Eng => occ.eng += 1,
+        };
+      }
+    }
+  }
+
+  /**
+   * Removes unhelpful features.
+   */
+  fn prune_features(&mut self) {
+    // "Unhelpful" features are digraphs that have only been witnessed once, ever.
+    // Remove them, since they don't add much when classifying.
+    self.features.retain(|_digraph, occ| occ.total() > 1);
+  }
+
+  fn classify(&self, word: &String) -> Language {
+    let mut log_prob_crk: f64 = 1.0;
+    for digraph in digraphs_of(word) {
+      if let Some(log_prob) = self.log_prob(digraph, Language::Crk) {
+        log_prob_crk += log_prob;
+      }
+    }
+
+    println!("P(crk|{}) = {}", word, log_prob_crk.exp());
+    Language::Crk
+  }
+
+  fn log_prob(&self, digraph: Digraph, language: Language) -> Option<f64> {
+    if let Some(occurance) = self.features.get(&digraph) {
+      let numerator: f64 = (occurance.of(language) + 1).into();
+      let denominator: f64 = (occurance.total() + self.num_features()).into();
+
+      Some(numerator.ln() - denominator.ln())
+    } else {
+      None
+    }
+  }
+
+  fn num_features(&self) -> u32 {
+    self.features.len() as u32
+  }
+}
+
+
 impl Occurance {
   fn total(&self) -> u32 {
     self.crk + self.eng
   }
+
+  // TODO: laplace smoothing
+  // TODO: log() all the things!
+  fn of(&self, language: Language) -> u32 {
+    match language {
+      Language::Crk => self.crk,
+      Language::Eng => self.eng,
+    }
+  }
 }
+
 
 /**
  * Displays a character. Note that this will panic if the characters are either
