@@ -18,7 +18,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::File;
-use std::io::{BufReader, BufRead};
+use std::io::{self, BufRead, BufReader};
 
 /**
  * Since we're interested in counting what are common starts of words, and common ends of words, a
@@ -49,6 +49,7 @@ enum Language {
 /**
  * How many times a digraph appears in nêhiyawêwin vs. English.
  */
+#[derive(Debug)]
 struct Occurance {
   crk: u32,
   eng: u32
@@ -59,22 +60,25 @@ struct Classifier {
 }
 
 
-fn main() {
+fn main() -> io::Result<()> {
   let mut model = Classifier::new();
   model.count_digraphs_in_file("itwêwina", Language::Crk);
   model.count_digraphs_in_file("words", Language::Eng);
 
   model.prune_features();
 
-  let test_words = [
-    "acimosis", "puppy", "house", "waskahikan", "beaver", "amisk", "bear",
-    "maskwa", "hello", "kitty", "tanisi", "minosis",
-    "tansi" // this will be misclassfied, mostly due to the "ns" digraph
-  ];
-  for word in test_words.iter() {
-    let lang = model.classify(word);
-    println!("I think '{}' is {:?}", word, lang);
+  use std::io;
+  use std::io::prelude::*;
+
+  let stdin = io::stdin();
+  for line in stdin.lock().lines() {
+    let word = line_to_word(&line.unwrap());
+    let guessed_lang = model.classify(&word);
+
+    println!("{}: {:?}", word, guessed_lang);
   }
+
+  Ok(())
 }
 
 /// Gets rid of surrounding whitespace,
@@ -211,8 +215,6 @@ impl Occurance {
     self.crk + self.eng
   }
 
-  // TODO: laplace smoothing
-  // TODO: log() all the things!
   fn of(&self, language: Language) -> u32 {
     match language {
       Language::Crk => self.crk,
