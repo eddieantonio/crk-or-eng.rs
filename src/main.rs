@@ -62,8 +62,8 @@ impl Classifier {
 
     for line in BufReader::new(file).lines() {
       let line = line.expect("Couldn't get line");
-      let word = preprocess_line(&line);
-      for digraph in digraphs_in(&word).iter() {
+      let word = line_to_word(&line);
+      for digraph in digraphs_of(&word).iter() {
         let occ = self.features.entry(*digraph)
           .or_insert(Occurance { crk: 0, eng: 0});
         on_digraph(occ)
@@ -76,8 +76,11 @@ impl Classifier {
    */
   fn prune_features(&mut self) {
     // "Unhelpful" features are digraphs that have only been witnessed once, ever.
+    // Remove them, since they don't add much when classifying.
     self.features.retain(|_digraph, occ| occ.total() > 1);
   }
+
+  // TODO: laplace smoothing
 }
 
 fn main() {
@@ -97,7 +100,7 @@ fn main() {
 /// Gets rid of surrounding whitespace,
 /// removes circumflexes,
 /// and lowercase's everting.
-fn preprocess_line(line: &str) -> String {
+fn line_to_word(line: &str) -> String {
   let mut buffer = String::new();
   // Remove extraneous spaces and punctuation.
   let word = line.trim_right_matches(|c| "!? \n".contains(c));
@@ -121,7 +124,7 @@ fn preprocess_line(line: &str) -> String {
 /**
  * Counts digraphs in a word. Assumes the word has already been preprocessed.
  */
-fn digraphs_in(text: &String) -> HashSet<Digraph> {
+fn digraphs_of(text: &String) -> HashSet<Digraph> {
   if text.is_empty() {
     return HashSet::new();
   }
